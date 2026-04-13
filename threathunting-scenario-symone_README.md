@@ -1,30 +1,33 @@
 # Threat Hunt Report: Unauthorized Tor Browser Usage
-### Log(N) Pacific | Security Operations
 
-**Analyst:** Symone-Marie Priester
-**Date:** April 13, 2026
-**Platform:** Microsoft Defender for Endpoint (MDE)
-**Query Language:** Kusto Query Language (KQL)
-**Device:** win11-tor-symon
-**User:** Symone
+<img width="400" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Tor-logo-2011-flat.svg/1200px-Tor-logo-2011-flat.svg.png" alt="Tor Browser Logo"/>
+
+## Platforms and Languages Leveraged
+- Windows 11 Virtual Machine (Microsoft Azure)
+- EDR Platform: Microsoft Defender for Endpoint
+- Kusto Query Language (KQL)
+- Tor Browser
+
+## Scenario
+
+Management suspects that some employees may be using Tor browsers to bypass network security controls because recent network logs show unusual encrypted traffic patterns and connections to known Tor entry nodes. Additionally, there have been anonymous reports of employees discussing ways to access restricted sites during work hours. The goal is to detect any Tor usage and analyze related security incidents to mitigate potential risks. If any use of Tor is found, notify management.
+
+### High-Level Tor-Related IoC Discovery Plan
+
+- **Check `DeviceFileEvents`** for any `tor(.exe)` or `firefox(.exe)` file events.
+- **Check `DeviceProcessEvents`** for any signs of installation or usage.
+- **Check `DeviceNetworkEvents`** for any signs of outgoing connections over known Tor ports.
 
 ---
 
-## Objective
+## Steps Taken
 
-Investigate potential unauthorized Tor Browser activity on endpoint `win11-tor-symon` after suspicious file events were identified during routine threat hunting in the DeviceFileEvents table.
+### 1. Searched the `DeviceFileEvents` Table
 
----
+Searched for any file that had the string "tor" in it and discovered what looks like the user "symone" downloaded a Tor installer, did something that resulted in many Tor-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2026-04-13T17:03:07Z`. These events began at `2026-04-13T16:26:17.2611803Z`.
 
-## Chronological Timeline of Events
+**Query used to locate events:**
 
-### 9:26:17 AM - Tor Browser Installer Downloaded
-
-The user "symone" downloaded the Tor Browser portable installer (`tor-browser-windows-x86_64-portable-15.0.9.exe`) to their Downloads folder. File events indicate the installer was present at `C:\Users\Symone\Downloads\`.
-
-**File Hash (SHA256):** `2f7dea5cb68c538ed0cf257b5fe3f0e6dd4cdb82d065dd099c82790e2b101622`
-
-**KQL Query Used:**
 ```kql
 DeviceFileEvents
 | where FileName startswith "tor"
@@ -35,20 +38,16 @@ DeviceFileEvents
 | project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
 ```
 
+![DeviceFileEvents Results](screenshots/tor-file-events.png)
+
 ---
 
-### 9:26:21 AM - Silent Installation Executed
+### 2. Searched the `DeviceProcessEvents` Table
 
-The user executed the Tor Browser installer from the Downloads folder. Process creation logs show the installer was run with the `/S` flag, indicating a silent (unattended) installation. This bypasses the standard installation wizard and suppresses all user prompts.
+Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64-portable-15.0.9.exe". Based on the logs returned, at `2026-04-13T16:26:21.0168431Z`, the user "symone" on the "win11-tor-symon" device ran the file `tor-browser-windows-x86_64-portable-15.0.9.exe` from their Downloads folder, using a command that triggered a silent installation.
 
-| Field | Value |
-|-------|-------|
-| Process | `tor-browser-windows-x86_64-portable-15.0.9.exe` |
-| Path | `C:\Users\Symone\Downloads\` |
-| Command | `tor-browser-windows-x86_64-portable-15.0.9.exe /S` |
-| SHA256 | `2f7dea5cb68c538ed0cf257b5fe3f0e6dd4cdb82d065dd099c82790e2b101622` |
+**Query used to locate event:**
 
-**KQL Query Used:**
 ```kql
 DeviceProcessEvents
 | where DeviceName == "win11-tor-symon"
@@ -56,41 +55,16 @@ DeviceProcessEvents
 | project DeviceName, AccountName, ActionType, FileName, FolderPath, SHA256, ProcessCommandLine
 ```
 
----
-
-### 9:36:29 AM - Tor Browser Files Extracted to Desktop
-
-The installation process extracted the full Tor Browser directory structure to `C:\Users\Symone\Desktop\Tor Browser\`. Key files created include:
-
-| Timestamp | File | Path |
-|-----------|------|------|
-| 9:36:29 AM | `tor.txt` | `...\Tor Browser\Browser\TorBrowser\Docs\Licenses\tor.txt` |
-| 9:36:29 AM | `Torbutton.txt` | `...\Tor Browser\Browser\TorBrowser\Docs\Licenses\Torbutton.txt` |
-| 9:36:29 AM | `Tor-Launcher.txt` | `...\Tor Browser\Browser\TorBrowser\Docs\Licenses\Tor-Launcher.txt` |
-| 9:36:30 AM | `tor.exe` | `...\Tor Browser\Browser\TorBrowser\Tor\tor.exe` |
-| 9:36:35 AM | `Tor Browser.lnk` | `...\Desktop\Tor Browser\Tor Browser.lnk` |
-
-**tor.exe Hash (SHA256):** `176c9cb6131fb49fa5e982e823766947e5ce673177c7fff339f5e7a9d330ebf3`
+![DeviceProcessEvents Results](screenshots/tor-install-events.png)
 
 ---
 
-### 9:41:24 AM - Tor Browser Launched
+### 3. Searched the `DeviceProcessEvents` Table for Tor Browser Execution
 
-The user launched the Tor Browser by executing `firefox.exe` from the Desktop installation path. Two parent `firefox.exe` processes were created simultaneously, followed by `tor.exe` spawning at 9:41:34 AM and multiple child `firefox.exe` content processes (tabs, GPU, RDD, utility) spawning between 9:41:32 AM and 9:41:35 AM.
+Searched for any indication that user "symone" actually opened the Tor browser. There was evidence that they did open it at `2026-04-13T16:41:24Z`. There were several other instances of `firefox.exe` (Tor) as well as `tor.exe` spawned afterwards.
 
-**tor.exe command line:**
-```
-tor.exe -f "C:\Users\Symone\Desktop\Tor Browser\Browser\TorBrowser\Data\Tor\torrc"
-  DataDirectory "C:\Users\Symone\Desktop\Tor Browser\Browser\TorBrowser\Data\Tor"
-  +__ControlPort 127.0.0.1:9151
-  +__SocksPort "127.0.0.1:9150 ExtendedErrors IPv6Traffic PreferIPv6 KeepAliveIsolateSOCKSAuth"
-  __OwningControllerProcess 9828
-  DisableNetwork 1
-```
+**Query used to locate events:**
 
-This confirms the Tor SOCKS proxy was configured to listen on `127.0.0.1:9150` with a control port on `127.0.0.1:9151`.
-
-**KQL Query Used:**
 ```kql
 DeviceProcessEvents
 | where DeviceName == "win11-tor-symon"
@@ -99,52 +73,16 @@ DeviceProcessEvents
 | order by Timestamp desc
 ```
 
----
-
-### 9:41:35 AM - Local Tor Control Connection Established
-
-The Tor Browser's `firefox.exe` process successfully connected to the local Tor control port at `127.0.0.1:9151`. An initial SOCKS proxy connection attempt to `127.0.0.1:9150` failed at 9:42:05 AM while the Tor circuit was still being established.
-
-| Timestamp | Action | Remote IP | Port | Process |
-|-----------|--------|-----------|------|---------|
-| 9:41:35 AM | ConnectionSuccess | 127.0.0.1 | 9151 | firefox.exe |
-| 9:42:05 AM | ConnectionFailed | 127.0.0.1 | 9150 | firefox.exe |
+![DeviceProcessEvents Tor Launch](screenshots/tor-process-events.png)
 
 ---
 
-### 9:43:33 AM - Tor Network Connection Established (External)
+### 4. Searched the `DeviceNetworkEvents` Table for Tor Network Connections
 
-The `tor.exe` process successfully connected to an external Tor relay node at `185.244.129.163` on port 9001. This is the first confirmed outbound connection to the Tor network. A second connection was made to the same IP and associated with the URL `https://www.ps7dhii4lsjinvhla.com`, indicating the user was actively browsing through the Tor network.
+Searched for any indication the Tor browser was used to establish a connection using any of the known Tor ports. At `2026-04-13T16:43:33Z`, the user "symone" on the "win11-tor-symon" device successfully established a connection to the remote IP address `185.244.129.163` on port `9001`. The connection was initiated by the process `tor.exe`, located at `c:\users\symone\desktop\tor browser\browser\torbrowser\tor\tor.exe`. There were a couple of other connections as well, including one to `51.89.242.29` on port `9001`.
 
-| Timestamp | Action | Remote IP | Port | URL | Process |
-|-----------|--------|-----------|------|-----|---------|
-| 9:43:33 AM | ConnectionSuccess | 185.244.129.163 | 9001 | | tor.exe |
-| 9:43:34 AM | ConnectionAcknowledged | 185.244.129.163 | 9001 | | |
-| 9:43:34 AM | ConnectionSuccess | 185.244.129.163 | 9001 | `https://www.ps7dhii4lsjinvhla.com` | tor.exe |
+**Query used to locate events:**
 
----
-
-### 9:44:03 AM - Additional Tor Relay Connection
-
-A second Tor relay node was contacted at `51.89.242.29` on port 9001, with an associated URL of `https://www.ezqjon7eux4clx.com`. This indicates active multi-hop Tor circuit usage for browsing.
-
-| Timestamp | Action | Remote IP | Port | URL | Process |
-|-----------|--------|-----------|------|-----|---------|
-| 9:44:03 AM | ConnectionSuccess | 51.89.242.29 | 9001 | | tor.exe |
-| 9:44:03 AM | ConnectionAcknowledged | 51.89.242.29 | 9001 | | |
-| 9:44:03 AM | ConnectionSuccess | 51.89.242.29 | 9001 | `https://www.ezqjon7eux4clx.com` | tor.exe |
-
----
-
-### 9:44:08 AM - SOCKS Proxy Connection Successful
-
-The `firefox.exe` process successfully connected to the local Tor SOCKS proxy at `127.0.0.1:9150`, confirming the Tor circuit was now fully operational and the browser was actively routing traffic through the Tor network.
-
-| Timestamp | Action | Remote IP | Port | Process |
-|-----------|--------|-----------|------|---------|
-| 9:44:08 AM | ConnectionSuccess | 127.0.0.1 | 9150 | firefox.exe |
-
-**KQL Query Used:**
 ```kql
 DeviceNetworkEvents
 | where DeviceName == "win11-tor-symon"
@@ -152,54 +90,75 @@ DeviceNetworkEvents
 | project Timestamp, DeviceName, ActionType, RemoteIP, RemotePort, RemoteUrl, InitiatingProcessFileName, InitiatingProcessFolderPath
 ```
 
----
-
-### 9:44:09 AM - 9:47:35 AM - Active Tor Browsing Session
-
-Between 9:44:09 AM and 9:47:35 AM, multiple `firefox.exe` content processes (tabs) were created from the Desktop Tor Browser installation, indicating sustained browsing activity through the Tor network. A total of 20 tab processes were spawned during this session.
+![DeviceNetworkEvents Results](screenshots/tor-network-events.png)
 
 ---
 
-### 10:03:07 AM - Suspicious File Created
+## Chronological Event Timeline
 
-The user created a file named `tor-shopping-list.txt` on the Desktop, followed by a recent file shortcut (`tor-shopping-list.lnk`) at 10:03:08 AM. The file name suggests the user was compiling a list related to purchases made or intended to be made over the Tor network.
+### 1. File Download - Tor Installer
 
-| Timestamp | File | Path | SHA256 |
-|-----------|------|------|--------|
-| 10:03:07 AM | `tor-shopping-list.txt` | `C:\Users\Symone\Desktop\` | `380e259525262b036047be5e448e7e2cb7d0e0894b144b78f8a4a11252e32423` |
-| 10:03:08 AM | `tor-shopping-list.lnk` | `...\Windows\Recent\` | `3f0372227508c6f1072ac20b671dec1aa941916e25a4d510a002af75d3a87bb4` |
+- **Timestamp:** `2026-04-13T16:26:17.2611803Z`
+- **Event:** The user "symone" downloaded a file named `tor-browser-windows-x86_64-portable-15.0.9.exe` to the Downloads folder.
+- **Action:** File creation detected.
+- **File Path:** `C:\Users\Symone\Downloads\tor-browser-windows-x86_64-portable-15.0.9.exe`
 
----
+### 2. Process Execution - Silent Installation
 
-## Evidence of Prior Tor Usage (Downloads Folder)
+- **Timestamp:** `2026-04-13T16:26:21.0168431Z`
+- **Event:** The user "symone" executed the file `tor-browser-windows-x86_64-portable-15.0.9.exe` in silent mode, initiating a background installation of the Tor Browser.
+- **Action:** Process creation detected.
+- **Command:** `tor-browser-windows-x86_64-portable-15.0.9.exe /S`
+- **File Path:** `C:\Users\Symone\Downloads\tor-browser-windows-x86_64-portable-15.0.9.exe`
 
-Log analysis also revealed an earlier Tor Browser session originating from the Downloads folder (`C:\Users\Symone\Downloads\Tor Browser\`) before the user relocated the installation to the Desktop. At 8:53:17 AM, `firefox.exe` was launched from the Downloads path, `tor.exe` spawned at 8:53:31 AM, and a control port connection to `127.0.0.1:9151` succeeded at 8:53:32 AM. A SOCKS proxy connection attempt to `127.0.0.1:9150` failed at 8:54:02 AM. Multiple tab processes were created through 8:53:36 AM. This indicates the user initially ran Tor from the Downloads folder, then moved the installation to the Desktop and launched it again.
+### 3. File Creation - Tor Browser Extracted to Desktop
 
----
+- **Timestamp:** `2026-04-13T16:36:29Z` - `2026-04-13T16:36:35Z`
+- **Event:** The Tor Browser installation extracted multiple files to the Desktop, including `tor.exe`, license files, and a desktop shortcut (`Tor Browser.lnk`).
+- **Action:** File creation detected.
+- **File Path:** `C:\Users\Symone\Desktop\Tor Browser\Browser\TorBrowser\Tor\tor.exe`
 
-## Indicators of Compromise
+### 4. Process Execution - Tor Browser Launch
 
-| Indicator | Type | Context |
-|-----------|------|---------|
-| `tor-browser-windows-x86_64-portable-15.0.9.exe` | File | Tor Browser installer |
-| `2f7dea5cb68c538ed0cf257b5fe3f0e6dd4cdb82d065dd099c82790e2b101622` | SHA256 | Installer hash |
-| `176c9cb6131fb49fa5e982e823766947e5ce673177c7fff339f5e7a9d330ebf3` | SHA256 | tor.exe hash |
-| `ef09a491d65b51f1f304145f6914a6682acd5c6226d0a241361730881134de35` | SHA256 | firefox.exe (Tor Browser) hash |
-| `185.244.129.163` | IP | Tor relay node (port 9001) |
-| `51.89.242.29` | IP | Tor relay node (port 9001) |
-| `tor-shopping-list.txt` | File | User-created file on Desktop |
-| `380e259525262b036047be5e448e7e2cb7d0e0894b144b78f8a4a11252e32423` | SHA256 | tor-shopping-list.txt hash |
+- **Timestamp:** `2026-04-13T16:41:24Z`
+- **Event:** User "symone" opened the Tor Browser. Subsequent processes associated with the Tor Browser, such as `firefox.exe` and `tor.exe`, were also created, indicating that the browser launched successfully.
+- **Action:** Process creation of Tor browser-related executables detected.
+- **File Path:** `C:\Users\Symone\Desktop\Tor Browser\Browser\TorBrowser\Tor\tor.exe`
+
+### 5. Network Connection - Tor Network
+
+- **Timestamp:** `2026-04-13T16:43:33Z`
+- **Event:** A network connection to IP `185.244.129.163` on port `9001` by user "symone" was established using `tor.exe`, confirming Tor browser network activity.
+- **Action:** Connection success.
+- **Process:** `tor.exe`
+- **File Path:** `c:\users\symone\desktop\tor browser\browser\torbrowser\tor\tor.exe`
+
+### 6. Additional Network Connections - Tor Browser Activity
+
+- **Timestamps:**
+  - `2026-04-13T16:43:34Z` - Connected to `185.244.129.163` on port `9001` (URL: `https://www.ps7dhii4lsjinvhla.com`).
+  - `2026-04-13T16:44:03Z` - Connected to `51.89.242.29` on port `9001` (URL: `https://www.ezqjon7eux4clx.com`).
+  - `2026-04-13T16:44:08Z` - Local connection to `127.0.0.1` on port `9150`.
+- **Event:** Additional Tor network connections were established, indicating ongoing activity through the Tor browser.
+- **Action:** Multiple successful connections detected.
+
+### 7. File Creation - Tor Shopping List
+
+- **Timestamp:** `2026-04-13T17:03:07Z`
+- **Event:** The user "symone" created a file named `tor-shopping-list.txt` on the Desktop, potentially indicating a list or notes related to their Tor browser activities.
+- **Action:** File creation detected.
+- **File Path:** `C:\Users\Symone\Desktop\tor-shopping-list.txt`
 
 ---
 
 ## Summary
 
-On April 13, 2026, the user "symone" on device `win11-tor-symon` downloaded, silently installed, and actively used the Tor Browser to route network traffic through the Tor anonymity network. The user initially ran the browser from the Downloads folder at approximately 8:53 AM, then relocated the installation to the Desktop and launched a second session at 9:41 AM. During the second session, `tor.exe` successfully established outbound connections to two external Tor relay nodes (`185.244.129.163` and `51.89.242.29`) on port 9001, confirming active Tor circuit usage. The Tor Browser's SOCKS proxy became fully operational at 9:44 AM, and the user sustained an active browsing session with approximately 20 browser tabs open through 9:47 AM. At 10:03 AM, the user created a file named `tor-shopping-list.txt` on the Desktop, suggesting potential procurement activity conducted over the Tor network. The use of the `/S` silent installation flag and the relocation of the browser from Downloads to the Desktop may indicate an attempt to reduce visibility of the installation process.
+The user "symone" on the "win11-tor-symon" device initiated and completed the installation of the Tor Browser using a silent installation flag (`/S`). They proceeded to launch the browser, establish connections within the Tor network to multiple relay nodes (`185.244.129.163` and `51.89.242.29` on port `9001`), and created various files related to Tor on their Desktop, including a file named `tor-shopping-list.txt`. This sequence of activities indicates that the user actively installed, configured, and used the Tor Browser, likely for anonymous browsing purposes, with possible documentation in the form of the "shopping list" file.
 
 ---
 
-## Author
+## Response Taken
 
-**Symone-Marie Priester** | Cybersecurity Analyst, Log(N) Pacific
-- LinkedIn: [linkedin.com/in/symone-mariepriester](https://linkedin.com/in/symone-mariepriester)
-- GitHub: [github.com/Symone-Marie](https://github.com/Symone-Marie)
+Tor usage was confirmed on the endpoint `win11-tor-symon` by the user `symone`. The device was isolated, and the user's direct manager was notified.
+
+---
