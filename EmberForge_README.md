@@ -134,9 +134,6 @@ The full investigation report with KQL queries, screenshots, and analysis is ava
     └── q43_wevtutil.png
 ```
 
-## About
-
-Conducted by **Symone-Marie Priester** as part of a SOC analyst threat hunting exercise using enterprise security tooling in a simulated production environment.
-
+Conducted by **Symone-Marie Priester** 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Symone--Marie%20Priester-0A66C2?logo=linkedin)](https://linkedin.com/in/symone-mariepriester)
 [![GitHub](https://img.shields.io/badge/GitHub-Symone--Marie-181717?logo=github)](https://github.com/Symone-Marie)
