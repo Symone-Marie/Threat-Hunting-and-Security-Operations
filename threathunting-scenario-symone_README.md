@@ -9,6 +9,7 @@
 - Tor Browser
 
 ## Scenario
+- [Scenario Creation](https://github.com/joshmadakor0/threat-hunting-scenario-tor/blob/main/threat-hunting-scenario-tor-event-creation.md)
 
 Management suspects that some employees may be using Tor browsers to bypass network security controls because recent network logs show unusual encrypted traffic patterns and connections to known Tor entry nodes. Additionally, there have been anonymous reports of employees discussing ways to access restricted sites during work hours. The goal is to detect any Tor usage and analyze related security incidents to mitigate potential risks. If any use of Tor is found, notify management.
 
