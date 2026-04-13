@@ -1,9 +1,9 @@
 [EmberForge_README.md](https://github.com/user-attachments/files/26661513/EmberForge_README.md)
 # EmberForge: Source Leak - Threat Hunt
 
-![Platform](https://img.shields.io/badge/Platform-Microsoft%20Sentinel-0078D4)
-![Language](https://img.shields.io/badge/Query%20Language-KQL-blue)
-![Status](https://img.shields.io/badge/Status-Completed-brightgreen)
+## Platform: Microsoft Sentinel
+## Language: KQL
+## Status: Completed
 
 ## Overview
 
