@@ -93,7 +93,7 @@ Phishing Archive (EmberForge_Review.zip)
 
 The full investigation report with KQL queries, screenshots, and analysis is available here:
 
-**[EmberForge Threat Hunt Report](file:///Users/symone-mariepriester/Downloads/EmberForge-Threat-Hunt-Report%20(1).html)**
+**[EmberForge Threat Hunt Report](images/EmberForge-Threat-Hunt-Report.pdf)**
 
 ## Repository Structure
 
