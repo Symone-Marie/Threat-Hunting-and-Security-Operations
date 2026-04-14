@@ -39,7 +39,7 @@ DeviceFileEvents
 | project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
 ```
 
-![DeviceFileEvents Results](screenshots/tor-file-events.png)
+![DeviceFileEvents Results](images/tor-file-events.png)
 
 ---
 
@@ -56,7 +56,7 @@ DeviceProcessEvents
 | project DeviceName, AccountName, ActionType, FileName, FolderPath, SHA256, ProcessCommandLine
 ```
 
-![DeviceProcessEvents Results](screenshots/tor-install-events.png)
+![DeviceProcessEvents Results](images/tor-install-events.png)
 
 ---
 
@@ -74,7 +74,7 @@ DeviceProcessEvents
 | order by Timestamp desc
 ```
 
-![DeviceProcessEvents Tor Launch](screenshots/tor-process-events.png)
+![DeviceProcessEvents Tor Launch](images/tor-process-events.png)
 
 ---
 
@@ -91,7 +91,7 @@ DeviceNetworkEvents
 | project Timestamp, DeviceName, ActionType, RemoteIP, RemotePort, RemoteUrl, InitiatingProcessFileName, InitiatingProcessFolderPath
 ```
 
-![DeviceNetworkEvents Results](screenshots/tor-network-events.png)
+![DeviceNetworkEvents Results](images/tor-network-events.png)
 
 ---
 
